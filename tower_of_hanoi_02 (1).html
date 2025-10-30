@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tower of Hanoi - Logic Puzzle</title>
+    <!-- Load Tailwind CSS --><script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom font import for aesthetics and readability */
+        @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap');
+        
+        /* === AESTHETICS UPDATE: Light Japanese Zen Background === */
+        body {
+            font-family: 'Open Sans', sans-serif; 
+            /* Lightest color for Japanese theme (Washi paper / Tatami mat) */
+            background-color: #f8f7f2; 
+            background-image: none; 
+            transition: background-color 0.3s;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem; 
+        }
+
+        .game-header {
+            font-family: 'Open Sans', sans-serif; 
+        }
+        .game-container {
+            max-width: 900px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            min-height: 400px;
+            background-color: #f0e8d0; /* Soft Cream / Light Tatami for the board */
+            border-bottom: 18px solid #c4b58f; /* Earthy Brown Base */
+            padding-bottom: 10px;
+            box-shadow: inset 0 -6px 12px rgba(0, 0, 0, 0.1);
+            border-radius: 12px; 
+            margin-bottom: 24px; 
+        }
+        .pole {
+            width: 30%;
+            height: 400px;
+            display: flex;
+            flex-direction: column-reverse; 
+            align-items: center;
+            padding: 0 10px;
+            position: relative;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            
+            /* TIER VISUALIZATION - Subtle brown guides on a light base */
+            background-image: repeating-linear-gradient(
+                to top, 
+                transparent, 
+                transparent 32px, 
+                rgba(0, 0, 0, 0.05) 32px, 
+                rgba(0, 0, 0, 0.05) 33px 
+            );
+            background-size: 100% 33px; 
+            background-position-y: 10px; 
+        }
+        .pole:hover:not(.selected) {
+            background-color: rgba(0, 0, 0, 0.05); /* Subtle hover effect */
+        }
+        .pole-rod {
+            width: 15px;
+            height: 95%;
+            background-color: #9e8964; /* Light Wood / Bamboo Rod */
+            position: absolute;
+            top: 0;
+            border-radius: 5px;
+            z-index: 10;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        }
+        .disk {
+            height: 30px;
+            margin-bottom: 2px;
+            border-radius: 6px;
+            position: relative;
+            z-index: 20;
+            transition: transform 0.3s, background-color 0.3s;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            font-weight: 700;
+            color: transparent;
+        }
+        .selected {
+            background-color: rgba(5, 150, 105, 0.2) !important; /* Jade Green tint for selection */
+            box-shadow: 0 0 0 3px #059669, inset 0 0 0 1px rgba(255,255,255,0.7); /* Outer glow for selection */
+        }
+
+        /* Splash Screen specific styles */
+        .splash-pole-rod {
+            width: 8px; 
+            height: 80px;
+            background-color: #9e8964;
+            border-radius: 3px;
+            box-shadow: 0 0 3px rgba(0, 0, 0, 0.1);
+        }
+        /* Disk colors for splash screen */
+        .splash-disk-1 { background-color: #c9b095; width: 30%; border: 1px solid #b69677; } 
+        .splash-disk-2 { background-color: #b69677; width: 45%; }
+        .splash-disk-3 { background-color: #a38260; width: 60%; }
+        .splash-disk-4 { background-color: #8f6e4a; width: 75%; }
+        .splash-disk-5 { background-color: #7c5c3b; width: 90%; } 
+
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+
+    <!-- Reduced max-width for better centering and focus, now max-w-4xl -->
+    <div class="max-w-4xl w-full">
+        <!-- Tower of Hanoi Header Box -->
+        <header class="text-center mb-6 bg-white p-6 rounded-xl shadow-2xl">
+            <h1 class="text-3xl sm:text-4xl font-extrabold game-header text-emerald-700 mb-2">
+                Tower of Hanoi
+            </h1>
+            <p class="text-lg text-gray-600">
+                A puzzle of logic and strategy, solved in the minimum number of moves.
+            </p>
+        </header>
+
+        <!-- Control and Info Panel: WIDER and ALIGNED with the header -->
+        <div class="bg-white p-4 rounded-xl shadow-2xl mb-6">
+            <div class="flex flex-col sm:flex-row justify-between items-center w-full">
+                <!-- Move Counter -->
+                <div class="flex-1 text-center sm:text-left mb-3 sm:mb-0">
+                    <span class="text-xl font-semibold text-gray-800">Moves: </span>
+                    <span id="moveCount" class="text-2xl font-bold text-red-500">0</span>
+                    <span class="ml-2 text-gray-500">(Min: <span id="minMoves"></span>)</span>
+                </div>
+                
+                <!-- Timer -->
+                <div class="flex-1 text-center mb-3 sm:mb-0">
+                    <span class="text-xl font-semibold text-gray-800">Time: </span>
+                    <span id="timerDisplay" class="text-2xl font-bold text-green-600">00:00</span>
+                </div>
+                
+                <!-- Disk Selector -->
+                <div class="flex-1 flex justify-center sm:justify-end">
+                    <select id="diskSelector" class="p-2 border rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 text-gray-700 font-semibold transition hover:shadow-md">
+                        <option value="3">3 Disks</option>
+                        <option value="4">4 Disks</option>
+                        <option value="5">5 Disks</option>
+                        <option value="6">6 Disks</option>
+                        <option value="7">7 Disks</option>
+                        <option value="8">8 Disks</option>
+                        <option value="9">9 Disks</option>
+                        <option value="10">10 Disks</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Area (max-width adjusted for proportion with the new 4xl wrapper) -->
+        <div id="gameContainer" class="game-container rounded-xl shadow-inner border-b-8 border-emerald-700 mx-auto" style="max-width: 900px;">
+            <div id="pole-0" class="pole" onclick="handlePoleClick(0)">
+                <div class="pole-rod"></div>
+            </div>
+            <div id="pole-1" class="pole" onclick="handlePoleClick(1)">
+                <div class="pole-rod"></div>
+            </div>
+            <div id="pole-2" class="pole" onclick="handlePoleClick(2)">
+                <div class="pole-rod"></div>
+            </div>
+        </div>
+        
+        <!-- Win Message Modal -->
+        <div id="winModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center p-4 z-50">
+            <div class="bg-white p-8 rounded-xl shadow-2xl text-center max-w-sm">
+                <h3 class="text-3xl font-bold text-emerald-600 mb-4 game-header">🏆 Success! 🏆</h3>
+                <p class="text-gray-700 mb-2">You solved the puzzle in:</p>
+                <p class="text-3xl font-extrabold text-emerald-700 mb-4 game-header"><span id="finalTime"></span></p>
+                <p class="text-gray-700 mb-4">Total Moves: <span id="finalMoves" class="font-bold"></span></p>
+                <p class="text-sm text-gray-500 mb-6">Minimum moves required: <span id="finalMinMoves"></span></p>
+                <button onclick="document.getElementById('winModal').classList.add('hidden'); resetGame();" class="px-6 py-3 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition duration-150 game-header shadow-md">
+                    Play Again!
+                </button>
+            </div>
+        </div>
+
+        <!-- System Message Box (for alerts) -->
+        <div id="messageBox" class="fixed bottom-4 right-4 bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-lg shadow-xl hidden z-50 transition duration-300"></div>
+        
+        <!-- Splash/Rules Introduction Modal - Background now matches the light theme -->
+        <div id="splashScreen" class="fixed inset-0 bg-opacity-95 flex items-center justify-center p-4 z-50" style="background-color: rgba(248, 247, 242, 0.95);">
+            <div class="bg-white p-8 rounded-xl shadow-2xl text-center max-w-xl">
+                <h2 class="text-4xl font-extrabold text-emerald-700 mb-2 game-header">Tower of Hanoi</h2>
+                <p class="text-xl text-gray-600 mb-6 font-semibold">A classic puzzle of recursive logic and data structures.</p>
+                
+                <div class="flex justify-center mb-8">
+                    <div class="bg-gray-200 p-4 rounded-lg border border-gray-300 w-3/4 max-w-xs relative overflow-hidden">
+                        <!-- Base Platform --><div class="w-full h-3 bg-gray-700 absolute bottom-4 left-0 rounded-md shadow-md" style="background-color: #c4b58f;"></div>
+                        
+                        <div class="flex justify-around items-end h-32 relative z-10">
+                            <!-- Pole 1 -->
+                            <div class="flex flex-col-reverse items-center h-full pt-1 splash-pole-container">
+                                <div class="splash-disk splash-disk-5"></div>
+                                <div class="splash-disk splash-disk-4"></div>
+                                <div class="splash-disk splash-disk-3"></div>
+                                <div class="splash-disk splash-disk-2"></div>
+                                <div class="splash-disk splash-disk-1"></div>
+                                <div class="splash-pole-rod absolute bottom-0"></div>
+                            </div>
+                            <!-- Pole 2 -->
+                            <div class="flex flex-col-reverse items-center h-full pt-1 splash-pole-container">
+                                <div class="splash-pole-rod absolute bottom-0"></div>
+                            </div>
+                            <!-- Pole 3 -->
+                            <div class="flex flex-col-reverse items-center h-full pt-1 splash-pole-container">
+                                <div class="splash-pole-rod absolute bottom-0"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div> 
+
+                <h3 class="text-2xl font-bold text-emerald-700 mb-4 game-header">Rules of Play:</h3>
+                <ol class="list-disc list-inside text-left space-y-2 mb-6 text-gray-700 font-medium">
+                    <li>Move all disks from the leftmost pole to the rightmost pole.</li>
+                    <li>Only one disk can be moved at a time.</li>
+                    <li>A disk must be taken from the top of a stack and placed on top of another.</li>
+                    <li>A larger disk cannot be placed on top of a smaller disk.</li>
+                </ol>
+                
+                <div class="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-4 mb-6">
+                    <span class="text-lg font-semibold text-gray-700">Choose Disks:</span>
+                    <select id="startDiskSelector" class="p-2 border rounded-lg shadow-sm text-gray-700 w-full sm:w-auto">
+                        <option value="3">3 Disks (Min 7 moves)</option>
+                        <option value="4">4 Disks (Min 15 moves)</option>
+                        <option value="5">5 Disks (Min 31 moves)</option>
+                        <option value="6">6 Disks (Min 63 moves)</option>
+                        <option value="7">7 Disks (Min 127 moves)</option>
+                        <option value="8">8 Disks (Min 255 moves)</option>
+                        <option value="9">9 Disks (Min 511 moves)</option>
+                        <option value="10">10 Disks (Min 1023 moves)</option>
+                    </select>
+                </div>
+                
+                <button onclick="startGame()" class="mt-6 px-8 py-3 bg-emerald-600 text-white font-bold rounded-lg text-xl hover:bg-emerald-700 transition duration-150 shadow-lg game-header">
+                    Start Game
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Game State Variables ---
+        let towers = [[], [], []]; 
+        let selectedDisk = null;
+        let selectedPoleIndex = -1;
+        let moveCount = 0;
+        let numDisks = 3;
+        let isGameStarted = false; 
+        let timerInterval = null;
+        let totalSeconds = 0;
+
+        // --- Timer Functions ---
+
+        /** Formats seconds into MM:SS format */
+        function formatTime(secs) {
+            const minutes = Math.floor(secs / 60);
+            const seconds = secs % 60;
+            return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        /** Starts the timer and updates the display every second */
+        function startTimer() {
+            if (timerInterval) return; 
+
+            timerInterval = setInterval(() => {
+                totalSeconds++;
+                document.getElementById('timerDisplay').textContent = formatTime(totalSeconds);
+            }, 1000);
+        }
+
+        /** Stops and resets the timer */
+        function stopTimer() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+
+        /** Resets the timer visually and internally */
+        function resetTimer() {
+            stopTimer();
+            totalSeconds = 0;
+            document.getElementById('timerDisplay').textContent = formatTime(totalSeconds);
+        }
+
+
+        // --- Utility Functions ---
+
+        /** Shows a temporary message box instead of using alert() */
+        function showMessage(text, isError = false) {
+            const box = document.getElementById('messageBox');
+            box.textContent = text;
+            // Reset classes
+            box.classList.remove('hidden', 'bg-red-100', 'border-red-400', 'text-red-700', 'bg-yellow-100', 'border-yellow-400', 'text-yellow-700');
+            // Apply new classes based on status
+            box.classList.add(isError ? 'bg-red-100' : 'bg-yellow-100', isError ? 'border-red-400' : 'border-yellow-400', isError ? 'text-red-700' : 'text-yellow-700');
+            
+            box.classList.remove('opacity-0');
+            box.classList.add('opacity-100');
+            
+            clearTimeout(window.messageTimeout);
+            window.messageTimeout = setTimeout(() => {
+                box.classList.add('hidden');
+                box.classList.remove('opacity-100');
+                box.classList.add('opacity-0');
+            }, 3000);
+        }
+
+        /** Renders the disks onto the UI based on the internal 'towers' state */
+        function render() {
+            document.getElementById('moveCount').textContent = moveCount;
+
+            // Richer, Darker Wood-Toned Gradient Palette (New Palette)
+            const diskColorPalette = [
+                '#c9b095', // Light Tan (smallest)
+                '#b69677', 
+                '#a38260', 
+                '#8f6e4a', 
+                '#7c5c3b', 
+                '#6a4b2c', 
+                '#583a1f', 
+                '#462912', 
+                '#341906', 
+                '#220900'  // Deep Espresso (largest, for contrast)
+            ];
+
+            for (let i = 0; i < towers.length; i++) {
+                const poleElement = document.getElementById(`pole-${i}`);
+                // Clear existing disks (excluding the rod)
+                poleElement.innerHTML = '<div class="pole-rod"></div>'; 
+                
+                // Add disks based on the Stack content (towers[i])
+                towers[i].forEach(diskSize => {
+                    const disk = document.createElement('div');
+                    // Disk size scales from 1 to 10 
+                    const widthPercent = (diskSize / numDisks) * 75 + 15;
+                    // Largest disk (numDisks) gets the largest index color
+                    const colorIndex = diskSize - 1; 
+                    
+                    disk.className = 'disk shadow-md'; 
+                    disk.style.width = `${widthPercent}%`;
+                    disk.style.backgroundColor = diskColorPalette[colorIndex];
+
+                    disk.style.textAlign = 'center';
+                    disk.style.lineHeight = '30px';
+                    disk.dataset.size = diskSize;
+
+                    // Highlight the disk if it is the one currently selected (being moved)
+                    if (selectedDisk === diskSize && selectedPoleIndex === i) {
+                        disk.style.transform = 'translateY(-100px) scale(1.1)';
+                        disk.style.boxShadow = '0 0 20px rgba(0, 0, 0, 0.7)';
+                    }
+                    
+                    poleElement.appendChild(disk);
+                });
+
+                // Set pole selection highlight
+                if (selectedPoleIndex === i) {
+                    poleElement.classList.add('selected');
+                } else {
+                    poleElement.classList.remove('selected');
+                }
+            }
+
+            // Check for victory condition
+            if (towers[1].length === numDisks || towers[2].length === numDisks) {
+                setTimeout(checkWin, 10);
+            }
+        }
+
+        /** Handles the logic for picking up and dropping a disk */
+        function handlePoleClick(poleIndex) {
+            // Start the timer on the very first valid move
+            if (!isGameStarted && moveCount === 0) {
+                isGameStarted = true;
+                startTimer();
+            }
+
+            const targetPole = towers[poleIndex];
+
+            if (selectedDisk === null) {
+                // --- Step 1: PICK UP a disk (POP operation) ---
+                if (targetPole.length === 0) {
+                    showMessage("This pole is empty. Cannot pick up a disk.", true);
+                    return;
+                }
+                
+                // POP the disk from the source Stack
+                selectedDisk = targetPole.pop(); 
+                selectedPoleIndex = poleIndex;
+                showMessage(`Picked up disk ${selectedDisk}. Click the destination pole.`);
+            } else {
+                // --- Step 2: DROP a disk (PUSH operation) ---
+
+                // 1. Check if the source and destination are the same (self-move fix).
+                if (poleIndex === selectedPoleIndex) {
+                    // Push the disk back to the source pole (same as destination). No move counted.
+                    targetPole.push(selectedDisk); 
+                    selectedDisk = null;
+                    selectedPoleIndex = -1;
+                    showMessage("Disk returned to its starting pole.", false);
+                    render();
+                    return;
+                }
+                
+                // 2. Rule Check: Can't place a disk on a smaller disk
+                const targetTopDiskSize = targetPole.length > 0 ? targetPole[targetPole.length - 1] : Infinity;
+                
+                if (selectedDisk > targetTopDiskSize) {
+                    // Invalid move: Push the disk back to the source stack and alert
+                    towers[selectedPoleIndex].push(selectedDisk); // Push back to source
+                    selectedDisk = null;
+                    selectedPoleIndex = -1;
+                    showMessage("Invalid Move: A larger disk cannot be placed on a smaller disk.", true);
+                    render();
+                    return;
+                }
+
+                // 3. Valid move (source != destination, size is valid)
+                // PUSH the disk onto the destination Stack
+                targetPole.push(selectedDisk); 
+                moveCount++;
+
+                // Reset selection state
+                selectedDisk = null;
+                selectedPoleIndex = -1;
+            }
+            
+            render();
+        }
+
+        /** Initializes the game state */
+        function resetGame() {
+            // Use the value from the main selector for consistency
+            numDisks = parseInt(document.getElementById('diskSelector').value, 10);
+            
+            towers = [[], [], []];
+            
+            // Initial state: PUSH all disks onto Pole 0 (Stack 0)
+            for (let i = numDisks; i >= 1; i--) {
+                towers[0].push(i); // Largest disk is at the bottom (index 0)
+            }
+
+            // Reset other variables
+            selectedDisk = null;
+            selectedPoleIndex = -1;
+            moveCount = 0;
+            isGameStarted = false;
+            
+            resetTimer(); // Reset the timer 
+            
+            // Set minimum moves required: 2^N - 1
+            const minMoves = Math.pow(2, numDisks) - 1;
+            document.getElementById('minMoves').textContent = minMoves;
+
+            showMessage(`New game started with ${numDisks} disks. Target moves: ${minMoves}`, false);
+            render();
+        }
+
+        /** Checks the victory condition and displays the modal */
+        function checkWin() {
+            const isWon = towers[1].length === numDisks || towers[2].length === numDisks;
+            if (isWon) {
+                stopTimer(); // Stop the timer on win
+                
+                document.getElementById('finalMoves').textContent = moveCount;
+                document.getElementById('finalMinMoves').textContent = Math.pow(2, numDisks) - 1;
+                document.getElementById('finalTime').textContent = formatTime(totalSeconds);
+                
+                document.getElementById('winModal').classList.remove('hidden');
+                document.getElementById('winModal').classList.add('flex');
+            }
+        }
+
+        /** Hides the splash screen and starts a new game */
+        function startGame() {
+            // Read disk count from the selector in the splash screen
+            numDisks = parseInt(document.getElementById('startDiskSelector').value, 10);
+            // Sync this value to the main UI dropdown
+            document.getElementById('diskSelector').value = numDisks;
+
+            document.getElementById('splashScreen').classList.add('hidden');
+            document.getElementById('splashScreen').classList.remove('flex');
+            resetGame();
+        }
+
+        // Initialize the game by showing the splash screen
+        window.onload = function() {
+            document.getElementById('splashScreen').classList.remove('hidden');
+            document.getElementById('splashScreen').classList.add('flex');
+            
+            // Set the disk selector in the main UI to the default value (3) on initial load
+            document.getElementById('diskSelector').value = 3; 
+        }
+        
+        // This remains functional to allow starting a new game by changing disk selection
+        document.getElementById('diskSelector').onchange = resetGame;
+
+    </script>
+</body>
+</html>
